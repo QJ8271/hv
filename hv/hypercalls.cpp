@@ -598,5 +598,54 @@ void remove_all_mmrs(vcpu* const cpu) {
   skip_instruction();
 }
 
+void get_process_peb(vcpu* const cpu) {
+    // PID of the process to get the CR3 value of
+    auto const target_pid = cpu->ctx->rcx;
+
+    // System process
+    if (target_pid == 4) {
+        cpu->ctx->rax = ghv.system_cr3.flags;
+        skip_instruction();
+        return;
+    }
+
+    cpu->ctx->rax = 0;
+
+    // ActiveProcessLinks is right after UniqueProcessId in memory
+    auto const apl_offset = ghv.eprocess_unique_process_id_offset + 8;
+    auto const head = ghv.system_eprocess + apl_offset;
+    auto curr_entry = head;
+
+    // iterate over every EPROCESS in the APL linked list
+    do {
+        // get the next entry in the linked list
+        if (sizeof(curr_entry) != read_guest_virtual_memory(ghv.system_cr3,
+            curr_entry + offsetof(LIST_ENTRY, Flink), &curr_entry, sizeof(curr_entry)))
+            break;
+
+        // EPROCESS
+        auto const process = curr_entry - apl_offset;
+
+        // EPROCESS::UniqueProcessId
+        uint64_t pid = 0;
+        if (sizeof(pid) != read_guest_virtual_memory(ghv.system_cr3,
+            process + ghv.eprocess_unique_process_id_offset, &pid, sizeof(pid)))
+            break;
+
+        // we found the target process
+        if (target_pid == pid) {
+            uint64_t peb_address;
+            if (read_guest_virtual_memory(ghv.system_cr3, reinterpret_cast<void*>(process + ghv.eprocess_peb_offset), &peb_address, sizeof(peb_address)) != sizeof(peb_address)) {
+                break;
+            }
+
+            cpu->ctx->rax = peb_address;
+            break;
+        }
+    } while (curr_entry != head);
+
+    skip_instruction();
+}
+
 } // namespace hv::hc
 

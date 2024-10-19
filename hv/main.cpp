@@ -2,6 +2,7 @@
 
 #include <ntddk.h>
 #include <ia32.hpp>
+#include "log.h"
 
 // simple hypercall wrappers
 static uint64_t ping() {
@@ -14,25 +15,25 @@ static uint64_t ping() {
 void driver_unload(PDRIVER_OBJECT) {
   hv::stop();
 
-  DbgPrint("[hv] Devirtualized the system.\n");
-  DbgPrint("[hv] Driver unloaded.\n");
+  LOG("[hv] Devirtualized the system.\n");
+  LOG("[hv] Driver unloaded.\n");
 }
 
 NTSTATUS driver_entry(PDRIVER_OBJECT const driver, PUNICODE_STRING) {
-  DbgPrint("[hv] Driver loaded.\n");
+    LOG("[hv] Driver loaded.\n");
 
   if (driver)
     driver->DriverUnload = driver_unload;
 
   if (!hv::start()) {
-    DbgPrint("[hv] Failed to virtualize system.\n");
+      LOG("[hv] Failed to virtualize system.\n");
     return STATUS_HV_OPERATION_FAILED;
   }
 
   if (ping() == hv::hypervisor_signature)
-    DbgPrint("[client] Hypervisor signature matches.\n");
+      LOG("[client] Hypervisor signature matches.\n");
   else
-    DbgPrint("[client] Failed to ping hypervisor!\n");
+      LOG("[client] Failed to ping hypervisor!\n");
 
   return STATUS_SUCCESS;
 }

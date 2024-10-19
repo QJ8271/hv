@@ -37,6 +37,7 @@ struct hypervisor {
   uint64_t kprcb_current_thread_offset;
   uint64_t kthread_apc_state_offset;
   uint64_t kapc_state_process_offset;
+  uint64_t eprocess_peb_offset;
 };
 
 // global instance of the hypervisor
